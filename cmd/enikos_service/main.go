@@ -2,25 +2,33 @@ package main
 
 import (
 	"fmt"
+	"strings"
 )
 
-func main() {
-	var RssFeed Rss
+func PrintPost(RssFeed RssEnikos) {
 
-	err := ParseFeed("https://enikos.ge/feed/", &RssFeed)
+	for _, item := range RssFeed.Channel.Item {
+
+		fmt.Println("Title:", item.Title)
+		fmt.Println("Link:", item.Link)
+		fmt.Println("Creator:", item.Creator)
+		fmt.Println("PubDate:", item.PubDate)
+		fmt.Println("Categories:", strings.Join(item.Category, ","))
+		fmt.Println("Image:", item.Image)
+
+		fmt.Println()
+	}
+}
+
+func main() {
+	var RssFeed RssEnikos
+
+	err := ParseFeed("https://enikos.gr/feed/", &RssFeed)
 	if err != nil {
 		fmt.Println("Error in XML PARSE")
 		return
 	}
 
-	for _, item := range RssFeed.Channel.Item {
-		fmt.Println("Title:", item.Title)
-		fmt.Println("Link:", item.Link)
-		fmt.Println("Creator:", item.Creator)
-		fmt.Println("PubDate:", item.PubDate)
-		fmt.Println("Categories:", item.Category)
-		fmt.Println("Image:", item.Image)
+	PrintPost(RssFeed)
 
-		fmt.Println()
-	}
 }

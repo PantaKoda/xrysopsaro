@@ -3,7 +3,7 @@ package main
 import "encoding/xml"
 
 // Rss was generated 2024-08-25 20:05:21 by https://xml-to-go.github.io/ in Ukraine.
-type Rss struct {
+type RssEnikos struct {
 	XMLName xml.Name `xml:"rss"`
 	Text    string   `xml:",chardata"`
 	Version string   `xml:"version,attr"`

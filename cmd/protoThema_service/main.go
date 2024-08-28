@@ -2,7 +2,11 @@ package main
 
 //go build -o ./output_test -a -ldflags="-s -w"  main.go ReadFromCache.go CurrentDirectory.go AppendToCache.go
 import (
+	"context"
 	"fmt"
+	cache2 "github.com/PantaKoda/xrysopsaro/common/cache"
+	database2 "github.com/PantaKoda/xrysopsaro/common/database_sqlc"
+	"github.com/PantaKoda/xrysopsaro/common/dbconnect"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PantaKoda/xrysopsaro/pkg/database"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -38,18 +42,15 @@ func RequestBody(urlString string) (*goquery.Document, error) {
 	return goquery.NewDocumentFromReader(res.Body)
 }
 
-func ProtoThemaTimeToRFC3339(pub_date string) string {
-
-	// Parse the time in RFC 3339 format
-	parsedTime, err := time.Parse(time.RFC3339, pub_date)
-
+// Modified parseTime function to ensure the original time zone is preserved.
+func parseTime(timeStr string) time.Time {
+	// Parse the time string using RFC3339 to maintain the original timezone information.
+	parsedTime, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
-		fmt.Println("Error parsing time:", err)
-		return ""
+		log.Printf("Error parsing time: %v", err)
+		return time.Now() // Default fallback, but ideally handle errors properly.
 	}
-
-	return parsedTime.Format(time.RFC3339)
-
+	return parsedTime
 }
 
 func TagsCategoriesProtoThema(PostUrl string) string {
@@ -104,36 +105,14 @@ func IsThrowablePort(node *goquery.Selection) bool {
 	return false
 }
 
-type Post struct {
-	Title       string `json:"title"`
-	PublishDate string `json:"publish_date"`
-	Description string `json:"description"`
-	ImgUrl      string `json:"img_url"`
-	Categories  string `json:"categories"`
-	Url         string `json:"url"`
-	Website     string `json:"website"`
-}
-
 func main() {
 
-	// Initialize the database connection
-	dbConn := database.InitializeDatabase()
+	// Initialize database_sqlc connection
+	conn := dbconnect.InitializeDatabase()
+	defer conn.Close(context.Background())
 
-	// Set the connection as the singleton instance
-	database.InitializeDB(dbConn)
-
-	// Ensure the connection is closed at the end of the program
-	defer func() {
-		if err := database.GetDB().Close(); err != nil {
-			log.Printf("Error closing the database connection: %v", err)
-		}
-	}()
-
-	// Example: Just to ensure the connection is working
-	if err := database.PingDatabase(database.GetDB()); err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Pinged database successfully")
+	// Create an instance of Queries using the connection
+	queries := database2.New(conn)
 
 	doc, err := RequestBody(BASE_URL)
 
@@ -142,16 +121,14 @@ func main() {
 		log.Fatal("Error fetching page source")
 	}
 
-	articlesListSelector := ARTICLES_LIST_SELECTOR
-	sel := doc.Find(articlesListSelector)
-	cachedUrls, err := ReadFromCache(DEFAULT_FILENAME)
+	sel := doc.Find(ARTICLES_LIST_SELECTOR)
+	cachedUrls, err := cache2.ReadFromCache(DEFAULT_FILENAME)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	articlesUrlsList := []string{}
-	articlesList := []Post{}
 
 	for i := range sel.Nodes {
 
@@ -167,13 +144,11 @@ func main() {
 			continue
 		}
 
-		var post Post
-
 		if !slices.Contains(cachedUrls, postUrl) {
 
 			articlesUrlsList = append(articlesUrlsList, postUrl)
 
-			fmt.Println("Appending URL to list:", postUrl) // Debug statement
+			//fmt.Println("Appending URL to list:", postUrl) // Debug statement
 			title := GetTitle(single)
 			description := GetDescription(single)
 
@@ -191,27 +166,36 @@ func main() {
 
 			tags := TagsCategoriesProtoThema(postUrl)
 
-			post = Post{
-				Title:       title,
-				PublishDate: publishedDate,
-				Description: description,
-				ImgUrl:      imgUrl,
-				Categories:  tags,
-				Url:         postUrl,
-				Website:     "protoThema",
+			// CreatePostParams is from SQLC, mapped with the scraped data
+			post := database2.CreatePostParams{
+
+				Title:          title,
+				PublishDate:    pgtype.Timestamptz{Time: parseTime(publishedDate), Valid: true},
+				PublishDateRaw: publishedDate,
+				Description:    pgtype.Text{String: description, Valid: true},
+				ImgUrl:         pgtype.Text{String: imgUrl, Valid: true},
+				Categories:     pgtype.Text{String: tags, Valid: true},
+				Url:            postUrl,
+				Website:        "protoThema",
 			}
-			articlesList = append(articlesList, post)
+			// Insert into the database_sqlc using SQLC
+			_, err := queries.CreatePost(context.Background(), post)
+			if err != nil {
+				log.Printf("Failed to insert post into the database_sqlc: %v", err)
+			} else {
+				log.Printf("Inserted post: %s", title)
+			}
+
+			//articlesList = append(articlesList, post)
 		}
 
 	}
 
-	//TODO Save to Database
+	//PrintPostList(articlesList)
 
-	PrintPostList(articlesList)
+	fmt.Println("Total URLs to append:", len(articlesUrlsList)) // Debug statement§
 
-	fmt.Println("Total URLs to append:", len(articlesUrlsList)) // Debug statement
-
-	err = appendSliceToFile(DEFAULT_FILENAME, articlesUrlsList)
+	err = cache2.AppendSliceToFile(DEFAULT_FILENAME, articlesUrlsList)
 
 	if err != nil {
 		log.Fatal("Error while appending to file", err)
@@ -250,7 +234,7 @@ func getImgUrl(node *goquery.Selection) (string, bool) {
 	}
 	fmt.Println("INSIDE GETIMG URP", html)
 */
-
+/*
 func PrintPostList(articleList []Post) {
 	for i := range articleList {
 		articleList[i].PrintDetails()
@@ -267,4 +251,4 @@ func (p *Post) PrintDetails() {
 	fmt.Println("Url :", p.Url)
 	fmt.Print()
 
-}
+} */

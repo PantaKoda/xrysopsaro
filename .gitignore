@@ -1,1 +1,100 @@
+# OS generated files #
+######################
+.DS_Store
+Thumbs.db
+
+# Logs and databases #
+######################
+*.log
+*.sqlite
+*.sqlite3
+*.db
+LOCAL_CACHE.txt
+
+# Node modules #
+################
+node_modules/
+jspm_packages/
+
+# TypeScript #
+##############
+*.tsbuildinfo
+
+# Go #
+######
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+vendor/
+# Go environment files
+go.sum
+go.mod
+
+# Python #
+##########
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Java #
+########
+*.class
+*.jar
+*.war
+*.ear
+
+# Ruby #
+########
+*.gem
+*.rbc
+
+# Backup files #
+################
+*~
+*.swp
+*.swo
+*.swn
+*.bak
+
+# Packages #
+############
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# macOS files #
+###############
+*.DS_Store
+
+# VS Code #
+###########
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA #
+#################
+.idea/
+
+# Environment variables #
+#########################
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc #
+########
+*.pid
+*.seed
+*.pid.lock
+# Ignore all files without extension in cmd directory and subdirectories
+cmd/**/[^.]*
